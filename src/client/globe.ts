@@ -22,6 +22,11 @@ export interface Flight {
   bus?: ((s: number) => LL)[];
 }
 
+export interface HubSpot {
+  ll: LL;
+  label: string;
+}
+
 export const FLIGHT_S = 7.2;
 const DEG = Math.PI / 180;
 const HUB_R = 1.22;
@@ -72,7 +77,7 @@ export class PixelGlobe {
     return { x: Math.cos(p) * Math.sin(l), y: Math.sin(p), z: Math.cos(p) * Math.cos(l) };
   }
 
-  draw(cv: HTMLCanvasElement | null, t: number, flights: Flight[], dots: LL[], meLL: LL | null, labels: string[]) {
+  draw(cv: HTMLCanvasElement | null, t: number, flights: Flight[], dots: LL[], meLL: LL | null, hubs: HubSpot[]) {
     if (!cv) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
@@ -142,8 +147,8 @@ export class PixelGlobe {
     for (const d of dots) { const v = this.vec(d); if (v.z > 0.05) { const q = P(v); set(q[0], q[1], C.yellow); } }
     if (meLL) { const v = this.vec(meLL); if (v.z > 0.05) { const q = P(v); set(q[0], q[1], C.fuchsia); set(q[0] + 1, q[1], C.fuchsia); } }
 
-    const hubVecs = HUBS.map((h) => { const v = this.vec([h.lon, h.lat]); return { x: v.x * HUB_R, y: v.y * HUB_R, z: v.z * HUB_R }; });
-    const flash = HUBS.map(() => 0);
+    const hubVecs = hubs.map((h) => { const v = this.vec(h.ll); return { x: v.x * HUB_R, y: v.y * HUB_R, z: v.z * HUB_R }; });
+    const flash = hubs.map(() => 0);
     const plot = (fn: (s: number) => V3, s0: number, s1: number, col: RGB, dotted: boolean) => {
       if (s1 <= s0) return null;
       const steps = Math.max(8, Math.round(R * 3 * (s1 - s0)));
@@ -174,8 +179,7 @@ export class PixelGlobe {
       const hp = plot(up, t1, h1, col, false);
       if (hp && h1 < 1) dot2(hp, C.white);
       if (age > 1.0 && age < 1.6) flash[m.hub] = 1;
-      const src = HUBS[m.hub];
-      if (!m.bus) m.bus = m.relays.map((r) => geoInterpolate([src.lon, src.lat], [HUBS[r].lon, HUBS[r].lat]) as (s: number) => LL);
+      if (!m.bus) m.bus = m.relays.map((r) => geoInterpolate(hubs[m.hub].ll, hubs[r].ll) as (s: number) => LL);
       const h2 = clamp((age - 1.1) / 0.9, 0, 1), t2 = clamp((age - 1.45) / 0.9, 0, 1);
       m.relays.forEach((r, k) => {
         const ip = m.bus![k];
@@ -212,7 +216,7 @@ export class PixelGlobe {
       }
       if (!dim) for (let xx = 1; xx < 5; xx++) set(hx + xx, hy + 3, C.gray);
       set(hx + 1, hy + 5, flash[i] ? C.red : Math.floor(t * 2 + i) % 2 ? C.lime : C.green);
-      hubLabels.push({ q: hq, code: labels[i] ?? HUBS[i].code, dim });
+      hubLabels.push({ q: hq, code: hubs[i].label, dim });
     });
 
     lctx.putImageData(img, 0, 0);

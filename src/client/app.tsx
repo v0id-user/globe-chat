@@ -1,7 +1,8 @@
 import { Component, createRef } from 'preact';
 import { HUBS, hubByCode, type HubCode } from '../shared/hubs';
 import { MAX_TEXT, type ChatMsg, type Place, type Presence, type ServerMsg } from '../shared/protocol';
-import { FLIGHT_S, PixelGlobe, type Flight } from './globe';
+import colos from '../shared/colos.json';
+import { FLIGHT_S, PixelGlobe, type Flight, type HubSpot } from './globe';
 import { Net } from './net';
 import { ProofDialog } from './proof';
 import { Row } from './row';
@@ -171,8 +172,16 @@ export class App extends Component<{}, State> {
     const dots: [number, number][] = [];
     for (const cities of Object.values(this.state.presence)) for (const c of cities ?? []) dots.push([c.lon, c.lat]);
     const me = this.state.me;
-    const labels = HUBS.map((h) => (this.state.hubColos[h.code] ? h.code + ' ' + this.state.hubColos[h.code] : h.code));
-    this.globe.draw(this.cv.current, this.now, this.flights, dots, me ? [me.lon, me.lat] : null, labels);
+    this.globe.draw(this.cv.current, this.now, this.flights, dots, me ? [me.lon, me.lat] : null, this.hubSpots());
+  }
+
+  // Each hub sits on the data center it reports running in; until it reports, on its region.
+  private hubSpots(): HubSpot[] {
+    return HUBS.map((h) => {
+      const colo = this.state.hubColos[h.code];
+      const at = colo ? (colos as Record<string, number[]>)[colo] : undefined;
+      return { ll: at ? [at[1], at[0]] : [h.lon, h.lat], label: colo ? h.code + ' ' + colo : h.code };
+    });
   }
 
   private down = (e: PointerEvent) => {
