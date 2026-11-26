@@ -3,6 +3,7 @@ import { HUBS, hubByCode, type HubCode } from '../shared/hubs';
 import { MAX_TEXT, type ChatMsg, type Place, type Presence, type ServerMsg } from '../shared/protocol';
 import colos from '../shared/colos.json';
 import { FLIGHT_S, PixelGlobe, type Flight, type HubSpot } from './globe';
+import { GlobeIcon } from './globe-icon';
 import { Net } from './net';
 import { ProofDialog } from './proof';
 import { Row } from './row';
@@ -292,7 +293,7 @@ export class App extends Component<{}, State> {
                   </figure>
                   <div aria-hidden="true" class="dots">{dots(1)}</div>
                   <figure>
-                    <svg role="img" aria-label="Everyone" width="32" height="32" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="4" y="1" width="8" height="1" fill="#ffffff" /><rect x="2" y="2" width="12" height="12" fill={linked ? '#0000ff' : '#000080'} /><rect x="1" y="4" width="14" height="8" fill={linked ? '#0000ff' : '#000080'} /><rect x="4" y="14" width="8" height="1" fill="#ffffff" /><rect x="4" y="4" width="4" height="3" fill={linked ? '#00ff00' : '#008000'} /><rect x="9" y="8" width="3" height="4" fill={linked ? '#00ff00' : '#008000'} /><rect x="3" y="9" width="3" height="2" fill={linked ? '#00ff00' : '#008000'} /></svg>
+                    <GlobeIcon />
                     <figcaption>Everyone</figcaption>
                   </figure>
                 </div>
