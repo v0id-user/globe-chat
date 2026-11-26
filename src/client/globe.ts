@@ -14,7 +14,6 @@ export interface Flight {
   place: string;
   text: string;
   key: string;
-  colo: string;
   from: LL;
   hub: number;
   relays: number[];
@@ -77,7 +76,7 @@ export class PixelGlobe {
     return { x: Math.cos(p) * Math.sin(l), y: Math.sin(p), z: Math.cos(p) * Math.cos(l) };
   }
 
-  draw(cv: HTMLCanvasElement | null, t: number, flights: Flight[], dots: LL[], meLL: LL | null, hubs: HubSpot[]) {
+  draw(cv: HTMLCanvasElement | null, t: number, flights: Flight[], dots: LL[], me: { ll: LL; label: string } | null, hubs: HubSpot[]) {
     if (!cv) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
@@ -147,7 +146,19 @@ export class PixelGlobe {
 
     const P = (p: V3): [number, number] => [cx + p.x * R, cy - p.y * R];
     for (const d of dots) { const v = this.vec(d); if (v.z > 0.05) { const q = P(v); set(q[0], q[1], C.yellow); } }
-    if (meLL) { const v = this.vec(meLL); if (v.z > 0.05) { const q = P(v); set(q[0], q[1], C.fuchsia); set(q[0] + 1, q[1], C.fuchsia); } }
+    let meQ: [number, number] | null = null;
+    if (me) {
+      const v = this.vec(me.ll);
+      if (v.z > 0.05) {
+        meQ = P(v);
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) set(meQ[0] + dx, meQ[1] + dy, C.fuchsia);
+        const blink = Math.floor(t * 2) % 2 === 0;
+        for (let a = 0; a < 16; a++) {
+          const an = (a / 16) * Math.PI * 2;
+          if (blink) set(meQ[0] + Math.cos(an) * 3, meQ[1] + Math.sin(an) * 3, C.white);
+        }
+      }
+    }
 
     const hubVecs = hubs.map((h) => { const v = this.vec(h.ll); return { x: v.x * HUB_R, y: v.y * HUB_R, z: v.z * HUB_R }; });
     const flash = hubs.map(() => 0);
@@ -169,13 +180,11 @@ export class PixelGlobe {
     const rise = (a: V3, b: V3, lift: number) => { const c = norm({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }, lift); return (s: number) => bez(a, c, b, s); };
 
     const bubbles: { m: Flight; o: V3; age: number; q: [number, number] }[] = [];
-    const edges: { q: [number, number]; code: string }[] = [];
     for (const m of flights) {
       const age = t - m.t;
       if (age < 0 || age > FLIGHT_S) continue;
       const ov = this.vec(m.from);
       const col = m.mine ? C.fuchsia : C.yellow;
-      if (age < 1.3 && ov.z > 0.05) edges.push({ q: P(ov), code: m.colo });
       const up = rise(ov, hubVecs[m.hub], 1.42);
       const h1 = clamp(age / 1.0, 0, 1), t1 = clamp((age - 0.35) / 1.0, 0, 1);
       const hp = plot(up, t1, h1, col, false);
@@ -236,13 +245,17 @@ export class PixelGlobe {
       if (x + w > W - 2) x = Math.round((hl.q[0] - 5) * ps - w);
       ctx.fillText(hl.code, x, Math.round(hl.q[1] * ps));
     }
-    ctx.font = Math.round(10 * dpr) + 'px ' + MONO;
-    for (const e of edges) {
-      ctx.fillStyle = '#000000';
-      const x = Math.round((e.q[0] + 2) * ps), y = Math.round((e.q[1] + 3) * ps);
-      ctx.fillRect(x - 2, y - Math.round(6 * dpr), ctx.measureText(e.code).width + 4, Math.round(12 * dpr));
+    if (me && meQ) {
+      // "You are here" tag, kept inside the canvas.
+      ctx.font = 'bold ' + Math.round(10 * dpr) + 'px ' + SANS;
+      const w = ctx.measureText(me.label).width + Math.round(8 * dpr), h = Math.round(14 * dpr);
+      let x = Math.round((meQ[0] + 5) * ps);
+      if (x + w > W - 2) x = Math.round((meQ[0] - 5) * ps - w);
+      const y = Math.round(meQ[1] * ps);
+      ctx.fillStyle = '#ff00ff';
+      ctx.fillRect(x, y - h / 2, w, h);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(e.code, x, y);
+      ctx.fillText(me.label, x + Math.round(4 * dpr), y);
     }
     ctx.textBaseline = 'alphabetic';
     for (const b of bubbles) this.balloon(ctx, b, ps, dpr, cx);
@@ -260,7 +273,7 @@ export class PixelGlobe {
     const lines = [
       { t: m.nick + '  ' + m.place, f: F('bold', 11), c: m.mine ? '#800080' : '#000080' },
       { t: trunc(m.text, 38), f: F('', 12), c: '#000000' },
-      { t: 'pow ' + m.key.slice(0, 8) + '  via ' + m.colo + ' > ' + HUBS[m.hub].code, f: D(10) + 'px ' + MONO, c: '#505050' }
+      { t: 'pow ' + m.key.slice(0, 8) + '  hub ' + HUBS[m.hub].code, f: D(10) + 'px ' + MONO, c: '#505050' }
     ];
     let wmax = 0;
     for (const L of lines) { ctx.font = L.f; wmax = Math.max(wmax, ctx.measureText(L.t).width); }

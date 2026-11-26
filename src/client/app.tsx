@@ -158,7 +158,7 @@ export class App extends Component<{}, State> {
   private fly(m: ChatMsg, mine: boolean) {
     const hub = hubIndex(m.hub);
     this.flights.push({
-      t: this.now, mine, nick: m.nick, place: placeOf(m), text: m.text, key: m.pow.key, colo: m.colo,
+      t: this.now, mine, nick: m.nick, place: placeOf(m), text: m.text, key: m.pow.key,
       from: [m.lon, m.lat], hub, relays: HUBS.map((_, i) => i).filter((i) => i !== hub), listeners: this.listeners()
     });
   }
@@ -172,7 +172,7 @@ export class App extends Component<{}, State> {
     const dots: [number, number][] = [];
     for (const cities of Object.values(this.state.presence)) for (const c of cities ?? []) dots.push([c.lon, c.lat]);
     const me = this.state.me;
-    this.globe.draw(this.cv.current, this.now, this.flights, dots, me ? [me.lon, me.lat] : null, this.hubSpots());
+    this.globe.draw(this.cv.current, this.now, this.flights, dots, me ? { ll: [me.lon, me.lat], label: 'YOU · ' + me.city } : null, this.hubSpots());
   }
 
   // Each hub sits on the data center it reports running in; until it reports, on its region.
@@ -180,7 +180,7 @@ export class App extends Component<{}, State> {
     return HUBS.map((h) => {
       const colo = this.state.hubColos[h.code];
       const at = colo ? (colos as Record<string, number[]>)[colo] : undefined;
-      return { ll: at ? [at[1], at[0]] : [h.lon, h.lat], label: colo ? h.code + ' ' + colo : h.code };
+      return { ll: at ? [at[1], at[0]] : [h.lon, h.lat], label: h.code };
     });
   }
 
@@ -222,23 +222,22 @@ export class App extends Component<{}, State> {
   render(_: {}, s: State) {
     const me = s.me;
     const hub = me ? hubByCode(me.hub) : null;
-    const colo = me?.colo ?? '...';
-    const hubName = (hub?.name ?? '...') + (me?.hubColo ? ` (${me.hubColo})` : '');
+    const hubName = hub?.name ?? '...';
     const linked = s.phase === 'linked' || s.phase === 'live';
     const joining = s.phase === 'joining';
     const blinkOn = Math.floor(s.dot / 4) % 2 === 0;
     const lit = (seg: number, i: number) => linked || (joining && ((((i + seg * 6 - s.dot) % 12) + 12) % 12) < 3);
     const dots = (seg: number) => [0, 1, 2, 3, 4, 5].map((i) => <span style={{ width: '6px', height: '6px', background: lit(seg, i) ? '#000080' : '#808080' }} />);
     const linkText = !me
-      ? 'Looking for the nearest data center...'
+      ? 'Finding you...'
       : linked
-        ? `Linked: you > ${colo} > hub ${hubName}.`
+        ? `Linked to the ${hubName} hub.`
         : joining
-          ? `Dialing ${colo} data center, then hub ${hubName}...`
-          : `You > ${colo} data center > hub ${hubName}`;
+          ? `Connecting you to the ${hubName} hub...`
+          : `You > Cloudflare > ${hubName} hub`;
     const sel = s.selId ? s.log.find((e) => e.id === s.selId && e.msg) : null;
     const total = Object.values(s.presence).reduce((n, c) => n + (c ?? []).reduce((k, x) => k + x.n, 0), 0);
-    const routeLine = (m: ChatMsg) => `${m.city} > ${m.colo} > hub ${m.hub}${m.hubColo ? ' in ' + m.hubColo : ''} > ${HUBS.length - 1} hubs > everyone`;
+    const routeLine = (m: ChatMsg) => `${m.city} > hub ${m.hub} > ${HUBS.length - 1} hubs > everyone`;
     return (
       <div class="desk">
         <div class="w-raise window">
@@ -269,7 +268,7 @@ export class App extends Component<{}, State> {
             </section>
           </div>
           <footer class="status">
-            <span class="w-cell grow">{s.phase === 'live' && me ? `Connected as ${s.myNick}, ${placeOf(me)} via ${colo} to hub ${hubName}` : me ? 'Not joined' : 'Connecting...'}</span>
+            <span class="w-cell grow">{s.phase === 'live' && me ? `You're in ${placeOf(me)} · chatting as ${s.myNick}` : me ? 'Not joined' : 'Connecting...'}</span>
             <span class="w-cell">{HUBS.length} hubs</span>
             <span class="w-cell">{total} online</span>
             <span class="w-cell">{s.clock}</span>
@@ -289,7 +288,7 @@ export class App extends Component<{}, State> {
                   <div aria-hidden="true" class="dots">{dots(0)}</div>
                   <figure>
                     <svg role="img" aria-label="Cloudflare data center" width="32" height="32" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="7" y="3" width="2" height="12" fill="#808080" /><rect x="5" y="14" width="6" height="1" fill="#404040" /><rect x="6" y="1" width="4" height="3" fill="#c0c0c0" /><rect x="6" y="1" width="4" height="1" fill="#ffffff" />{[[3, 2], [2, 3], [12, 2], [13, 3]].map(([x, y]) => <rect x={x} y={y} width="1" height="1" fill={linked || (joining && blinkOn) ? '#000080' : '#c0c0c0'} />)}</svg>
-                    <figcaption>{colo}</figcaption>
+                    <figcaption>Cloudflare</figcaption>
                   </figure>
                   <div aria-hidden="true" class="dots">{dots(1)}</div>
                   <figure>
