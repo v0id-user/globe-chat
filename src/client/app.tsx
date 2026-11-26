@@ -234,7 +234,7 @@ export class App extends Component<{}, State> {
         ? `Linked to the ${hubName} hub.`
         : joining
           ? `Connecting you to the ${hubName} hub...`
-          : `You > Cloudflare > ${hubName} hub`;
+          : `${me.city} > ${hubName} hub > everyone`;
     const sel = s.selId ? s.log.find((e) => e.id === s.selId && e.msg) : null;
     const total = Object.values(s.presence).reduce((n, c) => n + (c ?? []).reduce((k, x) => k + x.n, 0), 0);
     const routeLine = (m: ChatMsg) => `${m.city} > hub ${m.hub} > ${HUBS.length - 1} hubs > everyone`;
@@ -283,17 +283,17 @@ export class App extends Component<{}, State> {
                 <div class="link">
                   <figure>
                     <svg role="img" aria-label="Your computer" width="32" height="32" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="1" y="1" width="14" height="10" fill="#dfdfdf" /><rect x="1" y="1" width="14" height="1" fill="#ffffff" /><rect x="3" y="3" width="10" height="6" fill={linked ? '#008080' : joining ? '#000080' : '#000000'} /><rect x="5" y="11" width="6" height="2" fill="#808080" /><rect x="2" y="13" width="12" height="2" fill="#dfdfdf" /><rect x="2" y="14" width="12" height="1" fill="#808080" /></svg>
-                    <figcaption>You</figcaption>
+                    <figcaption>{me?.city ?? 'You'}</figcaption>
                   </figure>
                   <div aria-hidden="true" class="dots">{dots(0)}</div>
                   <figure>
-                    <svg role="img" aria-label="Cloudflare data center" width="32" height="32" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="7" y="3" width="2" height="12" fill="#808080" /><rect x="5" y="14" width="6" height="1" fill="#404040" /><rect x="6" y="1" width="4" height="3" fill="#c0c0c0" /><rect x="6" y="1" width="4" height="1" fill="#ffffff" />{[[3, 2], [2, 3], [12, 2], [13, 3]].map(([x, y]) => <rect x={x} y={y} width="1" height="1" fill={linked || (joining && blinkOn) ? '#000080' : '#c0c0c0'} />)}</svg>
-                    <figcaption>Cloudflare</figcaption>
+                    <svg role="img" aria-label="Your hub" width="32" height="32" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="4" y="1" width="8" height="14" fill="#c0c0c0" /><rect x="4" y="1" width="8" height="1" fill="#ffffff" /><rect x="11" y="1" width="1" height="14" fill="#808080" /><rect x="5" y="4" width="6" height="1" fill="#808080" /><rect x="5" y="6" width="6" height="1" fill="#808080" /><rect x="6" y="11" width="1" height="1" fill={linked ? '#00ff00' : joining && blinkOn ? '#ffff00' : '#008000'} /></svg>
+                    <figcaption>{me?.hub ?? '...'} hub</figcaption>
                   </figure>
                   <div aria-hidden="true" class="dots">{dots(1)}</div>
                   <figure>
-                    <svg role="img" aria-label="Your hub" width="32" height="32" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="4" y="1" width="8" height="14" fill="#c0c0c0" /><rect x="4" y="1" width="8" height="1" fill="#ffffff" /><rect x="11" y="1" width="1" height="14" fill="#808080" /><rect x="5" y="4" width="6" height="1" fill="#808080" /><rect x="5" y="6" width="6" height="1" fill="#808080" /><rect x="6" y="11" width="1" height="1" fill={linked ? '#00ff00' : joining && blinkOn ? '#ffff00' : '#008000'} /></svg>
-                    <figcaption>hub {me?.hub ?? '...'}</figcaption>
+                    <svg role="img" aria-label="Everyone" width="32" height="32" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="4" y="1" width="8" height="1" fill="#ffffff" /><rect x="2" y="2" width="12" height="12" fill={linked ? '#0000ff' : '#000080'} /><rect x="1" y="4" width="14" height="8" fill={linked ? '#0000ff' : '#000080'} /><rect x="4" y="14" width="8" height="1" fill="#ffffff" /><rect x="4" y="4" width="4" height="3" fill={linked ? '#00ff00' : '#008000'} /><rect x="9" y="8" width="3" height="4" fill={linked ? '#00ff00' : '#008000'} /><rect x="3" y="9" width="3" height="2" fill={linked ? '#00ff00' : '#008000'} /></svg>
+                    <figcaption>Everyone</figcaption>
                   </figure>
                 </div>
                 <p class="muted small min">{linkText}</p>
