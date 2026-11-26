@@ -1,5 +1,7 @@
 # Globe Chat
 
+Live at https://globe.lab.v0id.me
+
 A 90s dial-up chat room on a pixel globe. Every message flies from the sender's city, through the Cloudflare data center they came in on, to their hub, across to the other hubs, and out to everyone. Each message carries a proof of work you can check in your own browser.
 
 ## How it works
