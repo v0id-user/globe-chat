@@ -7,7 +7,8 @@
     "build": "vite build",
     "deploy": "vite build && wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "favicon": "bun run scripts/favicon.ts"
   },
   "dependencies": {
     "altcha-lib": "2.8.0",

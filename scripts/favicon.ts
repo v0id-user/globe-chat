@@ -1,15 +1,19 @@
 // Builds the favicons in public/ from the 16 x 16 globe in src/client/globe-icon.tsx.
-// Run: bun run scripts/favicon.ts
+// Run: bun run favicon
 import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 
-const src = readFileSync('src/client/globe-icon.tsx', 'utf8');
+// Paths resolve from the project root, so it runs the same from any folder.
+const root = join(import.meta.dir, '..');
+
+const src = readFileSync(join(root, 'src/client/globe-icon.tsx'), 'utf8');
 const paths = [...src.matchAll(/<path fill="(#[0-9a-f]{6})" d="([^"]+)"/g)].map(([, fill, d]) => ({ fill, d }));
 const px: (string | null)[] = Array(256).fill(null);
 for (const { fill, d } of paths) for (const [, x, y] of d.matchAll(/M(\d+) (\d+)/g)) px[+y * 16 + +x] = fill;
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">${paths.map((p) => `<path fill="${p.fill}" d="${p.d}"/>`).join('')}</svg>\n`;
-writeFileSync('public/favicon.svg', svg);
+writeFileSync(join(root, 'public/favicon.svg'), svg);
 
 const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
 const crc = (b: Buffer) => { let c = 0xffffffff; for (const x of b) c = crcTable[(c ^ x) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
@@ -33,6 +37,6 @@ function png(size: number, scale: number, bg: string | null) {
 const ico32 = png(32, 2, null);
 const head = Buffer.alloc(22); head.writeUInt16LE(1, 2); head.writeUInt16LE(1, 4);
 head[6] = 32; head[7] = 32; head.writeUInt16LE(1, 10); head.writeUInt16LE(32, 12); head.writeUInt32LE(ico32.length, 14); head.writeUInt32LE(22, 18);
-writeFileSync('public/favicon.ico', Buffer.concat([head, ico32]));
+writeFileSync(join(root, 'public/favicon.ico'), Buffer.concat([head, ico32]));
 // iOS home screen: no transparency there, so the globe sits on window gray.
-writeFileSync('public/apple-touch-icon.png', png(180, 10, '#c0c0c0'));
+writeFileSync(join(root, 'public/apple-touch-icon.png'), png(180, 10, '#c0c0c0'));
