@@ -7,6 +7,6 @@
   "durable_objects": {
     "bindings": [{ "name": "Hub", "class_name": "Hub" }]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Hub"] }],
+  "exports": { "Hub": { "type": "durable-object", "storage": "sqlite" } },
   "observability": { "enabled": true }
 }

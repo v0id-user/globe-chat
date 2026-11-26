@@ -38,7 +38,6 @@ export class Hub extends Server<Env> {
   private others = new Map<HubCode, Listener[]>();
   private colos = new Map<HubCode, string>();
   private pulled = false;
-  private presenceTimer: ReturnType<typeof setTimeout> | null = null;
   private inserts = 0;
   private colo: string | undefined;
   private coloAsked = false;
@@ -68,7 +67,7 @@ export class Hub extends Server<Env> {
 
   private peer(code: HubCode) {
     const hub = hubByCode(code)!;
-    return this.env.Hub.get(this.env.Hub.idFromName(code), { locationHint: hub.hint });
+    return this.env.Hub.getByName(code, { locationHint: hub.hint });
   }
 
   private peers() {
@@ -93,11 +92,11 @@ export class Hub extends Server<Env> {
     const hubColos = Object.fromEntries(this.colos);
     if (hubColo) hubColos[this.code] = hubColo;
     this.send(conn, { t: 'hello', me: { ...place, hub: this.code, hubColo }, hubColos, history, presence, challenge });
-    this.schedulePresence();
+    await this.schedulePresence();
   }
 
-  onClose() {
-    this.schedulePresence();
+  async onClose() {
+    await this.schedulePresence();
   }
 
   async onMessage(conn: Connection<ConnState>, raw: WSMessage) {
@@ -160,7 +159,7 @@ export class Hub extends Server<Env> {
     };
     this.send(conn, { t: 'challenge', challenge: next });
     this.relay(msg);
-    this.ctx.waitUntil(Promise.allSettled(this.peers().map((h) => this.peer(h.code).relay(msg))));
+    await Promise.allSettled(this.peers().map((h) => this.peer(h.code).relay(msg)));
   }
 
   // Called locally for the origin hub and over RPC by the other hubs.
@@ -207,13 +206,15 @@ export class Hub extends Server<Env> {
     );
   }
 
-  private schedulePresence() {
-    if (this.presenceTimer) return;
-    this.presenceTimer = setTimeout(() => {
-      this.presenceTimer = null;
-      const cities = this.cities();
-      this.broadcast(JSON.stringify({ t: 'presence', hub: this.code, cities } satisfies ServerMsg));
-      this.ctx.waitUntil(Promise.allSettled(this.peers().map((h) => this.peer(h.code).presence(this.code, cities))));
-    }, PRESENCE_DEBOUNCE_MS);
+  // Presence goes out at most every few seconds. An alarm, unlike a timer, lets the hub hibernate meanwhile.
+  private async schedulePresence() {
+    if ((await this.ctx.storage.getAlarm()) === null) await this.ctx.storage.setAlarm(Date.now() + PRESENCE_DEBOUNCE_MS);
   }
+
+  async onAlarm() {
+    const cities = this.cities();
+    this.broadcast(JSON.stringify({ t: 'presence', hub: this.code, cities } satisfies ServerMsg));
+    await Promise.allSettled(this.peers().map((h) => this.peer(h.code).presence(this.code, cities)));
+  }
+
 }

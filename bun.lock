@@ -16,7 +16,6 @@
       "devDependencies": {
         "@cloudflare/vite-plugin": "1.69.0",
         "@cloudflare/vitest-plugin": "1.8.0",
-        "@cloudflare/workers-types": "5.20261110.1",
         "@types/d3-geo": "3.1.1",
         "@types/topojson-client": "3.1.5",
         "typescript": "5.9.3",

@@ -1,4 +1,3 @@
-import { getServerByName } from 'partyserver';
 import { HUBS, nearestHub } from '../shared/hubs';
 import type { Place } from '../shared/protocol';
 
@@ -32,7 +31,6 @@ export default {
     // Place travels in a header the Worker sets; whatever the browser sent is replaced.
     const headers = new Headers(req.headers);
     headers.set('x-gc-place', encodeURIComponent(JSON.stringify(place)));
-    const stub = await getServerByName(env.Hub, hub.code, { locationHint: hub.hint });
-    return stub.fetch(new Request(req, { headers }));
+    return env.Hub.getByName(hub.code, { locationHint: hub.hint }).fetch(new Request(req, { headers }));
   }
 } satisfies ExportedHandler<Env>;
