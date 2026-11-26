@@ -122,7 +122,7 @@ export class Hub extends Server<Env> {
     const next = await issue(this.env.POW_SECRET, kind, this.code, conn.id);
     const nick = typeof m.nick === 'string' && NICK_RE.test(m.nick) ? m.nick : 'guest' + Math.floor(1000 + Math.random() * 9000);
     conn.setState({ ...st, sig: next.signature ?? null, nick: ok ? nick : null });
-    if (!ok) this.send(conn, { t: 'error', reason: 'proof rejected' });
+    if (!ok) this.send(conn, { t: 'error', reason: "the proof of work didn't check out" });
     else this.send(conn, { t: 'joined', nick });
     this.send(conn, { t: 'challenge', challenge: next });
   }
@@ -134,7 +134,7 @@ export class Hub extends Server<Env> {
     let reason = '';
     if (!st.nick) reason = 'join first';
     else if (!text) reason = 'empty message';
-    else if (now - st.last < MIN_GAP_MS) reason = 'slow down';
+    else if (now - st.last < MIN_GAP_MS) reason = 'too fast, one message a second';
     if (reason) return this.send(conn, { t: 'error', reason, cid });
 
     conn.setState({ ...st, sig: null });
@@ -142,7 +142,7 @@ export class Hub extends Server<Env> {
     const next = await issue(this.env.POW_SECRET, 'say', this.code, conn.id);
     conn.setState({ ...st, sig: next.signature ?? null, last: ok ? now : st.last });
     if (!ok) {
-      this.send(conn, { t: 'error', reason: 'proof rejected', cid });
+      this.send(conn, { t: 'error', reason: "proof didn't check out", cid });
       return this.send(conn, { t: 'challenge', challenge: next });
     }
 

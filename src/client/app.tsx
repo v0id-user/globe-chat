@@ -131,7 +131,7 @@ export class App extends Component<{}, State> {
         if (m.cid) this.setState((s) => ({ log: s.log.map((e) => (e.cid === m.cid ? { ...e, status: 'bad', reason: m.reason } : e)) }));
         else if (this.state.phase === 'joining') {
           if (this.dotT) clearInterval(this.dotT);
-          this.setState({ phase: 'join', joinError: 'The hub turned that down (' + m.reason + '). Try again.' });
+          this.setState({ phase: 'join', joinError: "That didn't go through: " + m.reason + '. Try again.' });
         }
         break;
     }
@@ -249,7 +249,7 @@ export class App extends Component<{}, State> {
           <div class="main">
             <section aria-label="Live globe" class="globe-col">
               <div class="w-sink globe-box">
-                <canvas ref={this.cv} class="w-cv" onPointerDown={this.down} onPointerMove={this.move} onPointerUp={this.up} onPointerCancel={this.up} role="img" aria-label="Pixel globe. Drag to spin. Messages fly from the sender's city up to its hub, across to the other hubs, then out to every listener." />
+                <canvas ref={this.cv} class="w-cv" onPointerDown={this.down} onPointerMove={this.move} onPointerUp={this.up} onPointerCancel={this.up} role="img" aria-label="Pixel globe you can drag to spin. Each message flies from the sender's city to their hub, over to the other hubs, and down to everyone online." />
               </div>
             </section>
             <section aria-label="Messages" class="chat-col">
@@ -302,7 +302,7 @@ export class App extends Component<{}, State> {
                 <input id="j-nick" class="w-field w-sink" autocomplete="off" maxLength={16} value={s.nick} disabled={joining || linked} placeholder="nightowl"
                   onInput={(e) => this.setState({ nick: (e.target as HTMLInputElement).value })}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); this.join(); } }} />
-                <p class="muted">{me ? <>You'll show up in <b class="ink">{placeOf(me)}</b>, read from your connection.</> : 'Finding where you are...'}</p>
+                <p class="muted">{me ? <>Everyone will see you in <b class="ink">{placeOf(me)}</b>. That comes from your internet connection.</> : 'Finding where you are...'}</p>
                 {s.joinError && <p class="err">{s.joinError}</p>}
                 {joining && (
                   <div class="stack">

@@ -23,7 +23,7 @@ export function ProofDialog({ m, mine, relays, listeners, onClose }: { m: ChatMs
   const secs = (p.ms / 1000).toFixed(2) + ' s';
   const verify = async () => {
     const r = await verifyPow(p);
-    setVer({ ok: r.ok, text: r.ok ? `Match: the key starts with ${p.prefix}. Checking took ${r.ms.toFixed(2)} ms, making it took ${(p.ms / 1000).toFixed(1)} s.` : 'No match. This proof is not valid.' });
+    setVer({ ok: r.ok, text: r.ok ? `Match: the key starts with ${p.prefix}. Checking took ${r.ms.toFixed(2)} ms, making it took ${(p.ms / 1000).toFixed(1)} s.` : "No match. This proof doesn't check out." });
   };
   const hubName = hubByCode(m.hub)?.name ?? m.hub;
   return (
@@ -47,7 +47,7 @@ export function ProofDialog({ m, mine, relays, listeners, onClose }: { m: ChatMs
             {tab === 'general' && (
               <div class="grid">
                 <span>From:</span><b style={{ color: mine ? '#800080' : '#000080' }}>{m.nick}</b>
-                <span>City:</span><span>{m.city}, {m.cc}<br /><small class="muted">Set by the Cloudflare edge from the connection. The sender can't type it.</small></span>
+                <span>City:</span><span>{m.city}, {m.cc}<br /><small class="muted">Cloudflare looks this up from the sender's connection, so nobody can type in a fake city.</small></span>
                 <span>Received:</span><span>{new Date(m.ts).toLocaleTimeString()}</span>
                 <span>Message:</span><div class="w-sink box">{m.text}</div>
               </div>
@@ -55,7 +55,7 @@ export function ProofDialog({ m, mine, relays, listeners, onClose }: { m: ChatMs
             {tab === 'proof' && (
               <>
                 <div class="grid">
-                  <span>Challenge:</span><span><code>{p.salt.slice(0, 8)}</code> <small class="muted">salt and nonce from the sender's hub, used once</small></span>
+                  <span>Challenge:</span><span><code>{p.salt.slice(0, 8)}</code> <small class="muted">a one-time puzzle from the sender's hub</small></span>
                   <span>Counter:</span><code>{fmt(p.counter)}</code>
                   <span>Work:</span><span>key starts with {p.prefix}, {bits} zero bits <small class="muted">(about {fmt(Math.pow(2, bits))} tries on average)</small></span>
                   <span>Spent:</span><span>{fmt(p.counter + 1)} hashes in {secs}</span>
@@ -71,16 +71,16 @@ export function ProofDialog({ m, mine, relays, listeners, onClose }: { m: ChatMs
                     </span>
                   )}
                 </div>
-                <p class="muted small">This shows the sender's browser spent time on a one-time challenge before sending. It doesn't prove a person or a real browser sent it.</p>
+                <p class="muted small">The sender's computer had to work through this puzzle before the message could go out, which makes spamming slow. A script can solve it too, so it doesn't prove a person sent it.</p>
               </>
             )}
             {tab === 'route' && (
               <ol class="route">
-                <li>The browser in <b>{m.city}, {m.cc}</b> solved its hub's challenge in {fmt(p.counter + 1)} hashes ({secs}).</li>
-                <li>It entered Cloudflare at the <b>{m.colo}</b> data center, which stamped the city on the connection.</li>
-                <li><b>Hub {hubName}</b>, the sender's hub{m.hubColo ? <> running in <b>{m.hubColo}</b></> : null}, checked the proof and retired the challenge.</li>
-                <li>The hub put it on the bus to {relays.length} other hubs: <span class="muted">{relays.join(', ')}</span></li>
-                <li>Each hub delivered it to its own people, {listeners.length} {listeners.length === 1 ? 'city' : 'cities'} online now: <span class="muted">{listeners.join(', ') || 'nobody else yet'}</span></li>
+                <li>The browser in <b>{m.city}, {m.cc}</b> solved its hub's puzzle in {fmt(p.counter + 1)} tries ({secs}).</li>
+                <li>Their internet provider handed it to Cloudflare at the <b>{m.colo}</b> data center, where Cloudflare looked up their city.</li>
+                <li><b>Hub {hubName}</b>, the sender's hub{m.hubColo ? <> running in <b>{m.hubColo}</b></> : null}, checked the puzzle and threw it away so nobody can reuse it.</li>
+                <li>The hub sent it to the {relays.length} other hubs: <span class="muted">{relays.join(', ')}</span></li>
+                <li>Each hub passed it to the people connected to it. Online now, {listeners.length} {listeners.length === 1 ? 'city' : 'cities'}: <span class="muted">{listeners.join(', ') || 'nobody else yet'}</span></li>
               </ol>
             )}
           </div>
