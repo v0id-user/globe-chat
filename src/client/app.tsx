@@ -117,6 +117,10 @@ export class App extends Component<{}, State> {
         break;
       }
       case 'msg': {
+        if (this.state.log.some((e) => e.id === m.msg.id)) {
+          this.setState((s) => ({ log: s.log.map((e) => (e.id === m.msg.id ? { ...e, msg: m.msg } : e)) }));
+          break;
+        }
         const mine = this.state.log.some((e) => e.cid && e.cid === m.msg.cid);
         this.setState((s) => {
           const e = this.entryOf(m.msg, s.myNick);
@@ -192,12 +196,13 @@ export class App extends Component<{}, State> {
     this.globe.draw(this.cv.current, this.now, this.flights, dots, me ? { ll: [me.lon, me.lat], label: 'YOU · ' + me.city } : null, this.hubSpots());
   }
 
-  // Each hub sits on the data center it reports running in; until it reports, on its region.
+  // Each hub sits on the data center it reports running in. Until it reports, it sits on a rough spot
+  // in its region and its label gets a question mark, so the guess doesn't pass for a fact.
   private hubSpots(): HubSpot[] {
     return HUBS.map((h) => {
       const colo = this.state.hubColos[h.code];
       const at = colo ? (colos as Record<string, number[]>)[colo] : undefined;
-      return { ll: at ? [at[1], at[0]] : [h.lon, h.lat], label: h.code };
+      return { ll: at ? [at[1], at[0]] : [h.lon, h.lat], label: at ? h.code : h.code + ' ?' };
     });
   }
 
@@ -232,8 +237,18 @@ export class App extends Component<{}, State> {
   };
 
   private route(m: ChatMsg) {
-    const cities = Object.values(this.state.presence).flatMap((c) => c ?? []);
-    return { relays: HUBS.filter((h) => h.code !== m.hub).map((h) => h.name), listeners: cities.map((c) => c.city) };
+    const d = m.delivered;
+    if (!d) return { record: null };
+    const others = HUBS.filter((h) => h.code !== m.hub);
+    const cities = Object.values(d).flatMap((c) => c ?? []);
+    return {
+      record: {
+        took: others.filter((h) => d[h.code]).map((h) => h.name),
+        silent: others.filter((h) => !d[h.code]).map((h) => h.name),
+        people: cities.reduce((n, c) => n + c.n, 0),
+        cities: [...new Set(cities.map((c) => c.city))]
+      }
+    };
   }
 
   render(_: {}, s: State) {
@@ -254,7 +269,10 @@ export class App extends Component<{}, State> {
           : `${me.city} > ${hubName} hub > everyone`;
     const sel = s.selId ? s.log.find((e) => e.id === s.selId && e.msg) : null;
     const total = Object.values(s.presence).reduce((n, c) => n + (c ?? []).reduce((k, x) => k + x.n, 0), 0);
-    const routeLine = (m: ChatMsg) => `${m.city} > hub ${m.hub} > ${HUBS.length - 1} hubs > everyone`;
+    const routeLine = (m: ChatMsg) => {
+      const n = m.delivered ? Object.keys(m.delivered).length - 1 : null;
+      return `${m.city} > hub ${m.hub} > ${n === null ? 'other hubs' : n + (n === 1 ? ' hub' : ' hubs')} > everyone`;
+    };
     return (
       <div class="desk">
         <div class="w-raise window">
@@ -270,7 +288,7 @@ export class App extends Component<{}, State> {
           <div class="main">
             <section aria-label="Live globe" class="globe-col">
               <div class="w-sink globe-box">
-                <canvas ref={this.cv} class="w-cv" onPointerDown={this.down} onPointerMove={this.move} onPointerUp={this.up} onPointerCancel={this.up} role="img" aria-label="Pixel globe you can drag to spin. Each message flies from the sender's city to their hub, over to the other hubs, and down to everyone online." />
+                <canvas ref={this.cv} class="w-cv" onPointerDown={this.down} onPointerMove={this.move} onPointerUp={this.up} onPointerCancel={this.up} role="img" aria-label="Pixel globe you can drag to spin. Each message flies from the sender's city to their hub, over to the other hubs, and down to everyone connected." />
               </div>
             </section>
             <section aria-label="Messages" class="chat-col">
@@ -292,7 +310,7 @@ export class App extends Component<{}, State> {
           <footer class="status">
             <span class="w-cell grow">{s.phase === 'live' && me ? `You're in ${placeOf(me)} · chatting as ${s.myNick}` : me ? 'Not joined' : 'Connecting...'}</span>
             <span class="w-cell">{HUBS.length} hubs</span>
-            <span class="w-cell">{total} online</span>
+            <span class="w-cell">{total} connected</span>
             <span class="w-cell">{s.clock}</span>
           </footer>
         </div>

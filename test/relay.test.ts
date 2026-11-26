@@ -19,6 +19,12 @@ describe('relay', () => {
 
     const got = (await tokyo.next('msg')).msg;
     expect(got).toMatchObject({ nick: 'falcon', text: 'salam', city: 'Riyadh', colo: 'RUH', hub: 'EUE' });
+
+    // Then the same message again, now with who actually took it.
+    const rec = (await tokyo.next('msg')).msg;
+    expect(rec.id).toBe(got.id);
+    expect(Object.keys(rec.delivered!).sort()).toEqual(['ASIA', 'EUE', 'EUW', 'OC', 'USE', 'USW']);
+    expect(rec.delivered!.ASIA!.map((c) => c.city)).toEqual(['Tokyo']);
     riyadh.ws.close();
     tokyo.ws.close();
   }, 120_000);

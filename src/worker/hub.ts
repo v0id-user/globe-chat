@@ -42,7 +42,7 @@ export class Hub extends Server<Env> {
   private pulled = false;
   private inserts = 0;
   private colo: string | undefined;
-  private coloAsked = false;
+  private coloTried = 0;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -52,8 +52,9 @@ export class Hub extends Server<Env> {
   // No documented API tells a Durable Object where it runs. A subrequest to
   // the trace endpoint leaves from the same data center and reports it.
   async ownColo(): Promise<string | undefined> {
-    if (this.coloAsked) return this.colo;
-    this.coloAsked = true;
+    // A failed lookup is tried again after a minute rather than never.
+    if (this.colo || Date.now() - this.coloTried < 60_000) return this.colo;
+    this.coloTried = Date.now();
     try {
       const r = await fetch('https://cloudflare.com/cdn-cgi/trace', { signal: AbortSignal.timeout(2000) });
       this.colo = /^colo=([A-Z]{3})$/m.exec(await r.text())?.[1];
@@ -184,17 +185,30 @@ export class Hub extends Server<Env> {
       pow: { salt: p.salt, nonce: p.nonce, counter: m.proof.solution.counter, key: m.proof.solution.derivedKey, prefix: p.keyPrefix, ms: Math.round(m.proof.solution.time ?? 0) }
     };
     this.send(conn, { t: 'challenge', challenge: next });
-    this.relay(msg);
-    await Promise.allSettled(this.peers().map((h) => this.peer(h.code).relay(msg)));
+    const delivered: Partial<Record<HubCode, Listener[]>> = { [this.code]: this.relay(msg) };
+    const peers = this.peers();
+    const answers = await Promise.allSettled(peers.map((h) => this.peer(h.code).relay(msg)));
+    answers.forEach((a, i) => { if (a.status === 'fulfilled') delivered[peers[i].code] = a.value; });
+    const done: ChatMsg = { ...msg, delivered };
+    this.record(done);
+    await Promise.allSettled(peers.filter((h) => delivered[h.code]).map((h) => this.peer(h.code).record(done)));
   }
 
   // Called locally for the origin hub and over RPC by the other hubs.
-  relay(msg: ChatMsg) {
+  // Returns who was connected here when it arrived, for the delivery record.
+  relay(msg: ChatMsg): Listener[] {
     this.sql`INSERT OR IGNORE INTO messages (id, ts, body) VALUES (${msg.id}, ${msg.ts}, ${JSON.stringify(msg)})`;
     if (++this.inserts % 20 === 0) {
       this.sql`DELETE FROM messages WHERE id NOT IN (SELECT id FROM messages ORDER BY ts DESC LIMIT ${HISTORY})`;
     }
     this.broadcast(JSON.stringify({ t: 'msg', msg } satisfies ServerMsg));
+    return this.cities();
+  }
+
+  // Swaps in the copy that carries the delivery record. A message an admin removed meanwhile stays removed.
+  record(msg: ChatMsg) {
+    const { rowsWritten } = this.ctx.storage.sql.exec('UPDATE messages SET body = ? WHERE id = ?', JSON.stringify(msg), msg.id);
+    if (rowsWritten) this.broadcast(JSON.stringify({ t: 'msg', msg } satisfies ServerMsg));
   }
 
   // Called locally for the hub the admin is on and over RPC by the other hubs.

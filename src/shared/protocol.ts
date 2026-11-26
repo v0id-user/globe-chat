@@ -37,6 +37,9 @@ export interface ChatMsg extends Place {
   text: string;
   hub: HubCode;
   pow: Pow;
+  // Filled in once the relay is done: every hub that took the message, with who was connected to it at that moment.
+  // A hub missing from here didn't answer.
+  delivered?: Partial<Record<HubCode, Listener[]>>;
 }
 
 export interface Listener {

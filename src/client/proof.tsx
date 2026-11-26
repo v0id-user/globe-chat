@@ -8,7 +8,9 @@ const BAD = 'M0 0h2v1h1v1h1v1h1V2h1V1h1V0h2v2H8v1H7v1H6v1h1v1h1v1h1v2H7V8H6V7H5V
 const fmt = (n: number) => n.toLocaleString('en-US');
 type Tab = 'general' | 'proof' | 'route';
 
-export function ProofDialog({ m, mine, relays, listeners, onClose }: { m: ChatMsg; mine: boolean; relays: string[]; listeners: string[]; onClose: () => void }) {
+export interface Delivery { took: string[]; silent: string[]; people: number; cities: string[] }
+
+export function ProofDialog({ m, mine, record, onClose }: { m: ChatMsg; mine: boolean; record: Delivery | null; onClose: () => void }) {
   const [tab, setTab] = useState<Tab>('proof');
   const [ver, setVer] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => setVer(null), [m.id]);
@@ -79,8 +81,17 @@ export function ProofDialog({ m, mine, relays, listeners, onClose }: { m: ChatMs
                 <li>The browser in <b>{m.city}, {m.cc}</b> solved its hub's puzzle in {fmt(p.counter + 1)} tries ({secs}).</li>
                 <li>Their internet provider handed it to Cloudflare at the <b>{m.colo}</b> data center, where Cloudflare looked up their city.</li>
                 <li><b>Hub {hubName}</b>, the sender's hub{m.hubColo ? <> running in <b>{m.hubColo}</b></> : null}, checked the puzzle and threw it away so nobody can reuse it.</li>
-                <li>The hub sent it to the {relays.length} other hubs: <span class="muted">{relays.join(', ')}</span></li>
-                <li>Each hub passed it to the people connected to it. Online now, {listeners.length} {listeners.length === 1 ? 'city' : 'cities'}: <span class="muted">{listeners.join(', ') || 'nobody else yet'}</span></li>
+                {record ? (
+                  <>
+                    <li>
+                      {record.took.length} of {record.took.length + record.silent.length} other hubs took it{record.took.length ? <>: <span class="muted">{record.took.join(', ')}</span></> : null}.
+                      {record.silent.length > 0 && <> No answer from <span class="muted">{record.silent.join(', ')}</span>, so people there didn't get it.</>}
+                    </li>
+                    <li>When it arrived, {record.people} {record.people === 1 ? 'person was' : 'people were'} connected, in {record.cities.length} {record.cities.length === 1 ? 'city' : 'cities'}: <span class="muted">{record.cities.join(', ')}</span></li>
+                  </>
+                ) : (
+                  <li>{Date.now() - m.ts < 15_000 ? 'The hub is passing it to the other hubs. Waiting to hear back.' : 'There is no delivery record for this message.'}</li>
+                )}
               </ol>
             )}
           </div>
