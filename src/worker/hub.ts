@@ -36,13 +36,30 @@ export class Hub extends Server<Env> {
   // Other hubs' listener cities. Memory only: refilled on the first
   // connection after a wake, then kept fresh by pushes.
   private others = new Map<HubCode, Listener[]>();
+  private colos = new Map<HubCode, string>();
   private pulled = false;
   private presenceTimer: ReturnType<typeof setTimeout> | null = null;
   private inserts = 0;
+  private colo: string | undefined;
+  private coloAsked = false;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.sql`CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, ts INTEGER NOT NULL, body TEXT NOT NULL)`;
+  }
+
+  // No documented API tells a Durable Object where it runs. A subrequest to
+  // the trace endpoint leaves from the same data center and reports it.
+  async ownColo(): Promise<string | undefined> {
+    if (this.coloAsked) return this.colo;
+    this.coloAsked = true;
+    try {
+      const r = await fetch('https://cloudflare.com/cdn-cgi/trace', { signal: AbortSignal.timeout(2000) });
+      this.colo = /^colo=([A-Z]{3})$/m.exec(await r.text())?.[1];
+    } catch {
+      this.colo = undefined;
+    }
+    return this.colo;
   }
 
   private get code(): HubCode {
@@ -72,7 +89,10 @@ export class Hub extends Server<Env> {
       .reverse();
     const presence = Object.fromEntries(this.others);
     presence[this.code] = this.cities();
-    this.send(conn, { t: 'hello', me: { ...place, hub: this.code }, history, presence, challenge });
+    const hubColo = await this.ownColo();
+    const hubColos = Object.fromEntries(this.colos);
+    if (hubColo) hubColos[this.code] = hubColo;
+    this.send(conn, { t: 'hello', me: { ...place, hub: this.code, hubColo }, hubColos, history, presence, challenge });
     this.schedulePresence();
   }
 
@@ -135,6 +155,7 @@ export class Hub extends Server<Env> {
       text,
       ...st.place,
       hub: this.code,
+      hubColo: await this.ownColo(),
       pow: { salt: p.salt, nonce: p.nonce, counter: m.proof.solution.counter, key: m.proof.solution.derivedKey, prefix: p.keyPrefix, ms: Math.round(m.proof.solution.time ?? 0) }
     };
     this.send(conn, { t: 'challenge', challenge: next });
@@ -178,7 +199,10 @@ export class Hub extends Server<Env> {
     this.pulled = true;
     await Promise.allSettled(
       this.peers().map(async (h) => {
-        this.others.set(h.code, await this.peer(h.code).listCities());
+        const peer = this.peer(h.code);
+        const [cities, colo] = await Promise.all([peer.listCities(), peer.ownColo()]);
+        this.others.set(h.code, cities);
+        if (colo) this.colos.set(h.code, colo);
       })
     );
   }

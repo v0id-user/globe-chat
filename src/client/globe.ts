@@ -72,7 +72,7 @@ export class PixelGlobe {
     return { x: Math.cos(p) * Math.sin(l), y: Math.sin(p), z: Math.cos(p) * Math.cos(l) };
   }
 
-  draw(cv: HTMLCanvasElement | null, t: number, flights: Flight[], dots: LL[], meLL: LL | null) {
+  draw(cv: HTMLCanvasElement | null, t: number, flights: Flight[], dots: LL[], meLL: LL | null, labels: string[]) {
     if (!cv) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
@@ -212,7 +212,7 @@ export class PixelGlobe {
       }
       if (!dim) for (let xx = 1; xx < 5; xx++) set(hx + xx, hy + 3, C.gray);
       set(hx + 1, hy + 5, flash[i] ? C.red : Math.floor(t * 2 + i) % 2 ? C.lime : C.green);
-      hubLabels.push({ q: hq, code: HUBS[i].code, dim });
+      hubLabels.push({ q: hq, code: labels[i] ?? HUBS[i].code, dim });
     });
 
     lctx.putImageData(img, 0, 0);

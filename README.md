@@ -10,6 +10,7 @@ A 90s dial-up chat room on a pixel globe. Every message flies from the sender's 
   - stamps the message
   - keeps the last 100 messages in SQLite
   - relays each message to the other 5 hubs over RPC
+  - learns which data center it runs in by fetching `cloudflare.com/cdn-cgi/trace`. No documented API gives this. On the first deploy the hubs reported SEA, IAD, MRS, MXP, NRT and MEL.
 - **Proof of work** (`src/worker/pow.ts`): [altcha-lib](https://github.com/altcha-org/altcha-lib) v2 with SHA-256. Each connection holds one signed challenge at a time. A join needs a key that starts with `00000`; a message needs `0000`. The browser solves the next challenge in a Web Worker while you type.
 - **Client** (`src/client`): Preact, `partysocket`, and `d3-geo` for the dithered globe.
 

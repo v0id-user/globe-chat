@@ -29,6 +29,8 @@ export interface Pow {
 
 export interface ChatMsg extends Place {
   id: string;
+  // Data center the sender's hub runs in, when Cloudflare's trace endpoint says.
+  hubColo?: string;
   cid: string;
   ts: number;
   nick: string;
@@ -57,7 +59,8 @@ export type ClientMsg =
   | { t: 'say'; cid: string; text: string; proof: Proof };
 
 export type ServerMsg =
-  | { t: 'hello'; me: Place & { hub: HubCode }; history: ChatMsg[]; presence: Presence; challenge: Challenge }
+  | { t: 'hello'; me: Place & { hub: HubCode; hubColo?: string };
+      hubColos: Partial<Record<HubCode, string>>; history: ChatMsg[]; presence: Presence; challenge: Challenge }
   | { t: 'challenge'; challenge: Challenge }
   | { t: 'joined'; nick: string }
   | { t: 'msg'; msg: ChatMsg }

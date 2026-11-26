@@ -20,13 +20,14 @@ export interface Entry {
 }
 
 type Phase = 'connecting' | 'join' | 'joining' | 'linked' | 'live';
-type Me = Place & { hub: HubCode };
+type Me = Place & { hub: HubCode; hubColo?: string };
 
 interface State {
   phase: Phase;
   me: Me | null;
   myNick: string;
   presence: Presence;
+  hubColos: Partial<Record<HubCode, string>>;
   log: Entry[];
   draft: string;
   nick: string;
@@ -41,7 +42,7 @@ const hubIndex = (code: string) => Math.max(0, HUBS.findIndex((h) => h.code === 
 const placeOf = (p: { city: string; cc: string }) => p.city + ', ' + p.cc;
 
 export class App extends Component<{}, State> {
-  state: State = { phase: 'connecting', me: null, myNick: '', presence: {}, log: [], draft: '', nick: '', selId: null, dot: 0, clock: hm(new Date()), joinError: '' };
+  state: State = { phase: 'connecting', me: null, myNick: '', presence: {}, hubColos: {}, log: [], draft: '', nick: '', selId: null, dot: 0, clock: hm(new Date()), joinError: '' };
   private cv = createRef<HTMLCanvasElement>();
   private logEl = createRef<HTMLDivElement>();
   private globe = new PixelGlobe();
@@ -90,6 +91,7 @@ export class App extends Component<{}, State> {
         this.setState((s) => ({
           me: m.me,
           presence: m.presence,
+          hubColos: m.hubColos ?? {},
           phase: s.phase === 'connecting' ? 'join' : s.phase,
           log: this.merge(s.log, m.history.map((x) => this.entryOf(x, s.myNick)))
         }));
@@ -169,7 +171,8 @@ export class App extends Component<{}, State> {
     const dots: [number, number][] = [];
     for (const cities of Object.values(this.state.presence)) for (const c of cities ?? []) dots.push([c.lon, c.lat]);
     const me = this.state.me;
-    this.globe.draw(this.cv.current, this.now, this.flights, dots, me ? [me.lon, me.lat] : null);
+    const labels = HUBS.map((h) => (this.state.hubColos[h.code] ? h.code + ' ' + this.state.hubColos[h.code] : h.code));
+    this.globe.draw(this.cv.current, this.now, this.flights, dots, me ? [me.lon, me.lat] : null, labels);
   }
 
   private down = (e: PointerEvent) => {
@@ -211,7 +214,7 @@ export class App extends Component<{}, State> {
     const me = s.me;
     const hub = me ? hubByCode(me.hub) : null;
     const colo = me?.colo ?? '...';
-    const hubName = hub?.name ?? '...';
+    const hubName = (hub?.name ?? '...') + (me?.hubColo ? ` (${me.hubColo})` : '');
     const linked = s.phase === 'linked' || s.phase === 'live';
     const joining = s.phase === 'joining';
     const blinkOn = Math.floor(s.dot / 4) % 2 === 0;
@@ -226,7 +229,7 @@ export class App extends Component<{}, State> {
           : `You > ${colo} data center > hub ${hubName}`;
     const sel = s.selId ? s.log.find((e) => e.id === s.selId && e.msg) : null;
     const total = Object.values(s.presence).reduce((n, c) => n + (c ?? []).reduce((k, x) => k + x.n, 0), 0);
-    const routeLine = (m: ChatMsg) => `${m.city} > ${m.colo} > hub ${m.hub} > ${HUBS.length - 1} hubs > everyone`;
+    const routeLine = (m: ChatMsg) => `${m.city} > ${m.colo} > hub ${m.hub}${m.hubColo ? ' in ' + m.hubColo : ''} > ${HUBS.length - 1} hubs > everyone`;
     return (
       <div class="desk">
         <div class="w-raise window">

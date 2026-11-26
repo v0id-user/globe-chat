@@ -78,7 +78,7 @@ export function ProofDialog({ m, mine, relays, listeners, onClose }: { m: ChatMs
               <ol class="route">
                 <li>The browser in <b>{m.city}, {m.cc}</b> solved its hub's challenge in {fmt(p.counter + 1)} hashes ({secs}).</li>
                 <li>It entered Cloudflare at the <b>{m.colo}</b> data center, which stamped the city on the connection.</li>
-                <li><b>Hub {hubName}</b>, the sender's hub, checked the proof and retired the challenge.</li>
+                <li><b>Hub {hubName}</b>, the sender's hub{m.hubColo ? <> running in <b>{m.hubColo}</b></> : null}, checked the proof and retired the challenge.</li>
                 <li>The hub put it on the bus to {relays.length} other hubs: <span class="muted">{relays.join(', ')}</span></li>
                 <li>Each hub delivered it to its own people, {listeners.length} {listeners.length === 1 ? 'city' : 'cities'} online now: <span class="muted">{listeners.join(', ') || 'nobody else yet'}</span></li>
               </ol>
