@@ -1,22 +1,14 @@
 # Globe Chat
 
-Live at https://globe.lab.v0id.me
+A 90s-style chat room on a pixel globe: https://globe.lab.v0id.me
 
-A 90s dial-up chat room on a pixel globe. Every message flies from the sender's city, through the Cloudflare data center they came in on, to their hub, across to the other hubs, and out to everyone. Each message carries a proof of work you can check in your own browser.
+Your message goes from your city to the Cloudflare data center you came in on, then to your hub, then to the other hubs, and out to everyone connected. You watch the whole trip on the globe. Before a message can go out, your browser has to solve a small SHA-256 puzzle, and anyone can click the message and check that proof.
 
-## How it works
-
-- **Worker** (`src/worker/index.ts`): serves the app and `GET /hub`. It reads the city, coordinates and data center from `request.cf` and sends the WebSocket to the nearest hub.
-- **Hub** (`src/worker/hub.ts`): one Durable Object per region, 6 in total: `USW`, `USE`, `EUW`, `EUE`, `ASIA`, `OC`. Cloudflare doesn't create Durable Objects in South America, Africa or the Middle East, so people there join the nearest of these. A hub:
-  - checks each proof
-  - stamps the message
-  - keeps the last 100 messages in SQLite
-  - relays each message to the other 5 hubs over RPC
-  - learns which data center it runs in by fetching `cloudflare.com/cdn-cgi/trace`. No documented API gives this. On the first deploy the hubs reported SEA, IAD, MRS, MXP, NRT and MEL.
-- **Proof of work** (`src/worker/pow.ts`): [altcha-lib](https://github.com/altcha-org/altcha-lib) v2 with SHA-256. Each connection holds one signed challenge at a time. A join needs a key that starts with `00000`; a message needs `0000`. The browser solves the next challenge in a Web Worker while you type.
-- **Client** (`src/client`): Preact, `partysocket`, and `d3-geo` for the dithered globe.
+The 6 hubs are Durable Objects, one per region (`src/worker/hub.ts`). Each one stores the last 100 messages and relays new ones to the others. Each hub also records which hubs took the message and who was connected at the time. A hub finds out which data center it runs in by fetching `cloudflare.com/cdn-cgi/trace`, since no API tells it.
 
 ## Run it
+
+`.dev.vars` needs `POW_SECRET` and `ADMIN_KEY`.
 
 ```bash
 bun install
@@ -26,8 +18,6 @@ bun install
 bun run dev
 ```
 
-`.dev.vars` holds a local `POW_SECRET`. Tests:
-
 ```bash
 bun run test
 ```
@@ -35,13 +25,15 @@ bun run test
 ## Deploy
 
 ```bash
-bunx wrangler login
+bunx wrangler secret put POW_SECRET
 ```
 
 ```bash
-bunx wrangler secret put POW_SECRET
+bunx wrangler secret put ADMIN_KEY
 ```
 
 ```bash
 bun run deploy
 ```
+
+To get admin mode (delete one message or clear the room), open the site with `#admin=<ADMIN_KEY>` at the end of the URL.
