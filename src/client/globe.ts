@@ -91,7 +91,9 @@ export class PixelGlobe {
     if (!this.mctx) this.mctx = mk.getContext('2d', { willReadFrequently: true })!;
     if (!this.img) this.img = lctx.createImageData(lw, lh);
 
-    const R = Math.min(lw, lh) * this.scale, cx = lw * this.cxF, cy = lh * this.cyF;
+    // On a tall, narrow screen there is no side room for the log, so center the globe.
+    const narrow = lw < lh;
+    const R = Math.min(lw, lh) * this.scale, cx = lw * (narrow ? 0.5 : this.cxF), cy = lh * this.cyF;
     this.proj.scale(R).translate([cx, cy]).rotate([this.lam, this.phi]);
     this.rotFn = geoRotation([this.lam, this.phi]);
     const mc = this.mctx;
@@ -228,7 +230,11 @@ export class PixelGlobe {
     ctx.font = Math.round(10 * dpr) + 'px ' + SANS;
     for (const hl of hubLabels) {
       ctx.fillStyle = hl.dim ? '#808080' : '#c0c0c0';
-      ctx.fillText(hl.code, Math.round((hl.q[0] + 5) * ps), Math.round(hl.q[1] * ps));
+      const w = ctx.measureText(hl.code).width;
+      let x = Math.round((hl.q[0] + 5) * ps);
+      // Flip to the left of the hub when the label would run off the right edge.
+      if (x + w > W - 2) x = Math.round((hl.q[0] - 5) * ps - w);
+      ctx.fillText(hl.code, x, Math.round(hl.q[1] * ps));
     }
     ctx.font = Math.round(10 * dpr) + 'px ' + MONO;
     for (const e of edges) {
@@ -260,7 +266,9 @@ export class PixelGlobe {
     for (const L of lines) { ctx.font = L.f; wmax = Math.max(wmax, ctx.measureText(L.t).width); }
     const padx = D(6), lineH = D(14);
     const bw = Math.round(wmax + padx * 2), bh = lines.length * lineH + D(8);
-    const left = q[0] > cxLow ? qx - bw + D(8) : qx - D(8);
+    // Keep the whole balloon on the canvas; the tail still points at the city.
+    const W = ctx.canvas.width;
+    const left = clamp(q[0] > cxLow ? qx - bw + D(8) : qx - D(8), D(2), Math.max(D(2), W - bw - D(2)));
     const top = qy - lift - bh;
     const x0 = clamp(qx - D(5), left + D(6), left + bw - D(16));
     const steps = 6, th = lift - D(4);
