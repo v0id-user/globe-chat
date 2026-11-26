@@ -158,9 +158,11 @@ export class App extends Component<{}, State> {
 
   private fly(m: ChatMsg, mine: boolean) {
     const hub = hubIndex(m.hub);
+    const me = this.state.me;
     this.flights.push({
       t: this.now, mine, nick: m.nick, place: placeOf(m), text: m.text, key: m.pow.key,
-      from: [m.lon, m.lat], hub, relays: HUBS.map((_, i) => i).filter((i) => i !== hub), listeners: this.listeners()
+      from: [m.lon, m.lat], hub, relays: HUBS.map((_, i) => i).filter((i) => i !== hub), listeners: this.listeners(),
+      meLeg: !mine && me ? { ll: [me.lon, me.lat], hub: hubIndex(me.hub) } : undefined
     });
   }
 

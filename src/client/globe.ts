@@ -18,6 +18,8 @@ export interface Flight {
   hub: number;
   relays: number[];
   listeners: { ll: LL; hub: number }[];
+  // Set on messages someone else sent: the last leg, from your hub down to you.
+  meLeg?: { ll: LL; hub: number };
   bus?: ((s: number) => LL)[];
 }
 
@@ -210,6 +212,23 @@ export class PixelGlobe {
           for (let a = 0; a < 24; a++) {
             const an = (a / 24) * Math.PI * 2;
             set(q[0] + Math.cos(an) * rr, q[1] + Math.sin(an) * rr * Math.max(0.35, l.z), C.aqua);
+          }
+        }
+      }
+      if (m.meLeg) {
+        const st = m.meLeg.hub === m.hub ? 1.1 : 2.0;
+        const l = this.vec(m.meLeg.ll);
+        const down = rise(hubVecs[m.meLeg.hub], l, 1.3);
+        const hd = plot(down, clamp((age - st - 0.35) / 0.8, 0, 1), clamp((age - st) / 0.8, 0, 1), C.fuchsia, false);
+        if (hd && age - st < 0.8) dot2(hd, C.white);
+        const ra = age - st - 0.8;
+        if (ra > 0 && ra < 1.4 && l.z > 0.05) {
+          const q = P(l);
+          for (const rr of [1 + ra * 5, 1 + ra * 9]) {
+            for (let a = 0; a < 32; a++) {
+              const an = (a / 32) * Math.PI * 2;
+              set(q[0] + Math.cos(an) * rr, q[1] + Math.sin(an) * rr * Math.max(0.35, l.z), C.fuchsia);
+            }
           }
         }
       }
