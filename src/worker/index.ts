@@ -26,6 +26,11 @@ export default {
     if (url.pathname !== '/hub') return new Response('Not found', { status: 404 });
     if (req.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected a WebSocket', { status: 426 });
 
+    // Caps new connections per address; the address is only a counting key and is not stored.
+    const ip = req.headers.get('CF-Connecting-IP') ?? 'unknown';
+    const { success } = await env.CONNECT_LIMIT.limit({ key: ip });
+    if (!success) return new Response('Too many connections, try again in a minute', { status: 429 });
+
     const { place, known } = placeOf(req.cf as IncomingRequestCfProperties | undefined);
     const hub = known ? nearestHub(place.lat, place.lon) : HUBS[1];
     // Place travels in a header the Worker sets; whatever the browser sent is replaced.

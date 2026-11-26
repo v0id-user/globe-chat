@@ -8,5 +8,6 @@
     "bindings": [{ "name": "Hub", "class_name": "Hub" }]
   },
   "exports": { "Hub": { "type": "durable-object", "storage": "sqlite" } },
+  "ratelimits": [{ "name": "CONNECT_LIMIT", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } }],
   "observability": { "enabled": true }
 }

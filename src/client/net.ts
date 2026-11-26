@@ -1,6 +1,6 @@
 import ReconnectingWebSocket from 'partysocket/ws';
 import type { Challenge, Solution } from 'altcha-lib/types';
-import { MIN_GAP_MS, type ClientMsg, type Proof, type ServerMsg } from '../shared/protocol';
+import { MIN_GAP_MS, type ClientMsg, type Proof, type Removal, type ServerMsg } from '../shared/protocol';
 
 const makeWorker = () => new Worker(new URL('./pow.worker.ts', import.meta.url), { type: 'module' });
 
@@ -16,6 +16,7 @@ export class Net {
   private queue: { cid: string; text: string }[] = [];
   private lastSay = 0;
   private waitT: ReturnType<typeof setTimeout> | null = null;
+  private adminKey: string | null = null;
 
   constructor(private on: (m: ServerMsg) => void) {
     const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/hub';
@@ -27,6 +28,7 @@ export class Net {
       } catch {
         return;
       }
+      if (m.t === 'hello' && this.adminKey) this.ws.send(JSON.stringify({ t: 'admin', key: this.adminKey } satisfies ClientMsg));
       if (m.t === 'hello' || m.t === 'challenge') this.solve(m.challenge);
       this.on(m);
     });
@@ -35,6 +37,20 @@ export class Net {
   join(nick: string) {
     this.nick = nick;
     this.flush();
+  }
+
+  // Sent again after every reconnect, since a new connection starts without admin rights.
+  setAdmin(key: string) {
+    this.adminKey = key;
+    this.ws.send(JSON.stringify({ t: 'admin', key } satisfies ClientMsg));
+  }
+
+  remove(ids: Removal) {
+    this.ws.send(JSON.stringify({ t: 'remove', ids } satisfies ClientMsg));
+  }
+
+  cancelJoin() {
+    this.nick = null;
   }
 
   say(cid: string, text: string) {

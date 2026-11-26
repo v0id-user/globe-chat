@@ -2,8 +2,9 @@ import { Server, type Connection, type ConnectionContext, type WSMessage } from 
 import { HUBS, hubByCode, type HubCode } from '../shared/hubs';
 import {
   HISTORY, MIN_GAP_MS, NICK_RE, cleanText,
-  type ChatMsg, type ClientMsg, type Listener, type Place, type ServerMsg
+  type ChatMsg, type ClientMsg, type Listener, type Place, type Removal, type ServerMsg
 } from '../shared/protocol';
+import { badNick, rejectText, sameKey } from './moderation';
 import { check, issue } from './pow';
 
 interface ConnState {
@@ -11,6 +12,7 @@ interface ConnState {
   nick: string | null;
   sig: string | null;
   last: number;
+  admin?: boolean;
 }
 
 const PRESENCE_DEBOUNCE_MS = 3000;
@@ -110,10 +112,27 @@ export class Hub extends Server<Env> {
     }
     if (m.t === 'join') return this.join(conn, st, m);
     if (m.t === 'say') return this.say(conn, st, m);
+    if (m.t === 'admin') {
+      const ok = sameKey(String(m.key ?? ''), this.env.ADMIN_KEY ?? '');
+      conn.setState({ ...st, admin: ok });
+      return this.send(conn, { t: 'admin', ok });
+    }
+    if (m.t === 'remove' && st.admin) {
+      const ids: Removal = m.ids === 'all' ? 'all' : Array.isArray(m.ids) ? m.ids.filter((x) => typeof x === 'string').slice(0, 50) : [];
+      this.remove(ids);
+      await Promise.allSettled(this.peers().map((h) => this.peer(h.code).remove(ids)));
+    }
   }
 
   private async join(conn: Connection<ConnState>, st: ConnState, m: Extract<ClientMsg, { t: 'join' }>) {
     if (st.nick) return;
+    if (typeof m.nick === 'string' && badNick(m.nick)) {
+      // The browser spent its puzzle on this try, so hand out a new one.
+      const again = await issue(this.env.POW_SECRET, 'join', this.code, conn.id);
+      conn.setState({ ...st, sig: again.signature ?? null });
+      this.send(conn, { t: 'error', reason: 'pick another nickname' });
+      return this.send(conn, { t: 'challenge', challenge: again });
+    }
     // Clear the challenge before awaiting, so a replay sent alongside can't pass too.
     conn.setState({ ...st, sig: null });
     const ok = await check(this.env.POW_SECRET, m.proof, st.sig, 'join');
@@ -134,7 +153,14 @@ export class Hub extends Server<Env> {
     if (!st.nick) reason = 'join first';
     else if (!text) reason = 'empty message';
     else if (now - st.last < MIN_GAP_MS) reason = 'too fast, one message a second';
-    if (reason) return this.send(conn, { t: 'error', reason, cid });
+    else reason = rejectText(text) ?? '';
+    if (reason) {
+      // The browser spent its puzzle on this try, so hand out a new one.
+      const again = await issue(this.env.POW_SECRET, st.nick ? 'say' : 'join', this.code, conn.id);
+      conn.setState({ ...st, sig: again.signature ?? null });
+      this.send(conn, { t: 'error', reason, cid });
+      return this.send(conn, { t: 'challenge', challenge: again });
+    }
 
     conn.setState({ ...st, sig: null });
     const ok = await check(this.env.POW_SECRET, m.proof, st.sig, 'say');
@@ -169,6 +195,13 @@ export class Hub extends Server<Env> {
       this.sql`DELETE FROM messages WHERE id NOT IN (SELECT id FROM messages ORDER BY ts DESC LIMIT ${HISTORY})`;
     }
     this.broadcast(JSON.stringify({ t: 'msg', msg } satisfies ServerMsg));
+  }
+
+  // Called locally for the hub the admin is on and over RPC by the other hubs.
+  remove(ids: Removal) {
+    if (ids === 'all') this.sql`DELETE FROM messages`;
+    else for (const id of ids) this.sql`DELETE FROM messages WHERE id = ${id}`;
+    this.broadcast(JSON.stringify({ t: 'removed', ids } satisfies ServerMsg));
   }
 
   presence(hub: HubCode, cities: Listener[]) {

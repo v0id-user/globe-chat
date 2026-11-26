@@ -20,7 +20,7 @@ function Status({ e }: { e: Entry }) {
   );
 }
 
-export function Row({ e, route, onOpen }: { e: Entry; route: string; onOpen: () => void }) {
+export function Row({ e, route, onOpen, onRemove }: { e: Entry; route: string; onOpen: () => void; onRemove?: () => void }) {
   const [open, setOpen] = useState(false);
   const p = e.msg?.pow;
   const z = p ? (p.key.match(/^0*/) || [''])[0] : '';
@@ -34,6 +34,11 @@ export function Row({ e, route, onOpen }: { e: Entry; route: string; onOpen: () 
           <span style={{ color: e.status === 'bad' ? '#606060' : '#000000' }}>{e.text}</span>
           {!open && <> <Status e={e} /></>}
         </div>
+        {onRemove && (
+          <button type="button" class="row-remove" aria-label="Delete this message for everyone" title="Delete for everyone" onClick={onRemove}>
+            ✕
+          </button>
+        )}
         {canOpen && (
           <button type="button" class="row-toggle" aria-expanded={open} aria-label={open ? 'Hide proof' : 'Show proof'} title={open ? 'Hide proof' : 'Show proof'} onClick={() => setOpen(!open)}>
             {open ? '-' : '+'}

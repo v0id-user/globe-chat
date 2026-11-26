@@ -37,6 +37,7 @@ interface State {
   dot: number;
   clock: string;
   joinError: string;
+  isAdmin: boolean;
 }
 
 const hm = (d: Date) => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
@@ -44,7 +45,7 @@ const hubIndex = (code: string) => Math.max(0, HUBS.findIndex((h) => h.code === 
 const placeOf = (p: { city: string; cc: string }) => p.city + ', ' + p.cc;
 
 export class App extends Component<{}, State> {
-  state: State = { phase: 'connecting', me: null, myNick: '', presence: {}, hubColos: {}, log: [], draft: '', nick: '', selId: null, dot: 0, clock: hm(new Date()), joinError: '' };
+  state: State = { phase: 'connecting', me: null, myNick: '', presence: {}, hubColos: {}, log: [], draft: '', nick: '', selId: null, dot: 0, clock: hm(new Date()), joinError: '', isAdmin: false };
   private cv = createRef<HTMLCanvasElement>();
   private logEl = createRef<HTMLDivElement>();
   private globe = new PixelGlobe();
@@ -63,6 +64,12 @@ export class App extends Component<{}, State> {
 
   componentDidMount() {
     this.net = new Net((m) => this.onServer(m));
+    // Admin link: ...#admin=KEY. The part after # never goes to the server in the address; the key is sent over the socket.
+    const key = /admin=([^&]+)/.exec(location.hash)?.[1];
+    if (key) {
+      history.replaceState(null, '', location.pathname + location.search);
+      this.net.setAdmin(decodeURIComponent(key));
+    }
     const loop = (now: number) => {
       this.frame(now);
       this.raf = requestAnimationFrame(loop);
@@ -124,6 +131,12 @@ export class App extends Component<{}, State> {
         this.fly(m.msg, mine);
         break;
       }
+      case 'admin':
+        this.setState({ isAdmin: m.ok });
+        break;
+      case 'removed':
+        this.setState((s) => ({ log: m.ids === 'all' ? [] : s.log.filter((e) => !(m.ids as string[]).includes(e.id)), selId: null }));
+        break;
       case 'presence':
         this.setState((s) => ({ presence: { ...s.presence, [m.hub]: m.cities } }));
         break;
@@ -131,6 +144,7 @@ export class App extends Component<{}, State> {
         if (m.cid) this.setState((s) => ({ log: s.log.map((e) => (e.cid === m.cid ? { ...e, status: 'bad', reason: m.reason } : e)) }));
         else if (this.state.phase === 'joining') {
           if (this.dotT) clearInterval(this.dotT);
+          this.net.cancelJoin();
           this.setState({ phase: 'join', joinError: "That didn't go through: " + m.reason + '. Try again.' });
         }
         break;
@@ -247,6 +261,11 @@ export class App extends Component<{}, State> {
           <div class="titlebar">
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" shape-rendering="crispEdges"><rect x="4" y="1" width="8" height="1" fill="#ffffff" /><rect x="2" y="2" width="12" height="12" fill="#0000ff" /><rect x="1" y="4" width="14" height="8" fill="#0000ff" /><rect x="4" y="14" width="8" height="1" fill="#ffffff" /><rect x="4" y="4" width="4" height="3" fill="#00ff00" /><rect x="9" y="8" width="3" height="4" fill="#00ff00" /><rect x="3" y="9" width="3" height="2" fill="#00ff00" /></svg>
             <h1>Globe Chat - #global</h1>
+            {s.isAdmin && (
+              <button type="button" class="w-btn title-btn" onClick={() => { if (confirm('Delete every message for everyone?')) this.net.remove('all'); }}>
+                Clear all
+              </button>
+            )}
           </div>
           <div class="main">
             <section aria-label="Live globe" class="globe-col">
@@ -258,7 +277,7 @@ export class App extends Component<{}, State> {
               <div class="w-log w-sink log" ref={this.logEl} aria-live="polite">
                 {s.log.length === 0 && <p class="muted pad">Waiting for the first message...</p>}
                 {s.log.map((e) => (
-                  <Row key={e.id} e={e} route={e.msg ? routeLine(e.msg) : ''} onOpen={() => this.setState({ selId: e.id })} />
+                  <Row key={e.id} e={e} route={e.msg ? routeLine(e.msg) : ''} onOpen={() => this.setState({ selId: e.id })} onRemove={s.isAdmin && e.msg ? () => this.net.remove([e.id]) : undefined} />
                 ))}
               </div>
               <div class="compose">

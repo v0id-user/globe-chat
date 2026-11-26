@@ -54,9 +54,13 @@ export interface Proof {
   solution: Solution;
 }
 
+export type Removal = string[] | 'all';
+
 export type ClientMsg =
   | { t: 'join'; nick: string; proof: Proof }
-  | { t: 'say'; cid: string; text: string; proof: Proof };
+  | { t: 'say'; cid: string; text: string; proof: Proof }
+  | { t: 'admin'; key: string }
+  | { t: 'remove'; ids: Removal };
 
 export type ServerMsg =
   | { t: 'hello'; me: Place & { hub: HubCode; hubColo?: string };
@@ -65,7 +69,9 @@ export type ServerMsg =
   | { t: 'joined'; nick: string }
   | { t: 'msg'; msg: ChatMsg }
   | { t: 'presence'; hub: HubCode; cities: Listener[] }
-  | { t: 'error'; reason: string; cid?: string };
+  | { t: 'error'; reason: string; cid?: string }
+  | { t: 'admin'; ok: boolean }
+  | { t: 'removed'; ids: Removal };
 
 export function cleanText(s: unknown): string {
   if (typeof s !== 'string') return '';
